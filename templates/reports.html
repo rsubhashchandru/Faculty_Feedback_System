@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <h2 class="fw-bold font-monospace m-0">Analytical Reports Ledger</h2>
+    {% if report_data %}
+        <button class="btn btn-outline-dark" onclick="window.print()">🖨️ Export PDF / Print Report</button>
+    {% endif %}
+</div>
+
+<div class="card p-3 border-0 bg-body-tertiary mb-4 no-print">
+    <form method="GET" action="{{ url_for('reports') }}" class="row g-3 align-items-end">
+        <div class="col-md-9">
+            <label class="form-label fw-semibold">Select Faculty Profile to Query</label>
+            <select name="faculty_id" class="form-select" required>
+                <option value="" disabled selected>-- Choose Target Profile --</option>
+                {% for f in faculties %}
+                    <option value="{{ f.faculty_id }}" {{ 'selected' if selected_id|string == f.faculty_id|string }}>
+                        {{ f.faculty_name }} ({{ f.department }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">Execute Data Aggregation</button>
+        </div>
+    </form>
+</div>
+
+{% if report_data %}
+<div id="printableReportSection">
+    <div class="row align-items-center mb-4">
+        <div class="col-md-7">
+            <h3 class="fw-bold text-primary">{{ report_data.meta.faculty_name }}</h3>
+            <p class="text-muted mb-1"><strong>Academic Department:</strong> {{ report_data.meta.department }}</p>
+            <p class="text-muted mb-0"><strong>Assigned Course Track:</strong> {{ report_data.meta.subject }}</p>
+        </div>
+        <div class="col-md-5 text-md-end mt-3 mt-md-0">
+            <div class="d-inline-block bg-body-secondary p-3 rounded text-center me-2">
+                <span class="small text-uppercase text-muted d-block fw-bold">Evaluations</span>
+                <span class="fs-3 fw-bold">{{ report_data.count }}</span>
+            </div>
+            <div class="d-inline-block bg-primary text-white p-3 rounded text-center">
+                <span class="small text-uppercase opacity-75 d-block fw-bold">Aggregate Mean</span>
+                <span class="fs-3 fw-bold">{{ report_data.score }} / 5</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card p-3 h-100">
+                <h5 class="fw-bold text-secondary mb-3">Granular Metric Averages</h5>
+                <ul class="list-group list-group-flush">
+                    {% for q in report_data.q_breakdown %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
+                        <span class="small pe-2">{{ q.question_text }}</span>
+                        <span class="badge bg-primary rounded-pill fs-6">{{ q.q_avg }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card p-3 h-100 align-items-center justify-content-center">
+                <h5 class="fw-bold text-secondary mb-3 align-self-start">Vector Metric Analysis</h5>
+                <canvas id="facultyRadarChart" style="max-width: 100%; max-height: 290px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <h5 class="fw-bold text-secondary mb-3">Qualitative Comments Log</h5>
+        {% if not report_data.comments %}
+            <p class="text-muted small italic">No textual evaluation remarks logs recorded for this configuration node.</p>
+        {% else %}
+            <div style="max-height: 250px; overflow-y: auto;" class="pe-2">
+                {% for c in report_data.comments %}
+                <div class="border-bottom pb-2 mb-2">
+                    <p class="mb-1 bg-body-tertiary p-2 rounded small">"{{ c.comment_text }}"</p>
+                    <small class="text-muted d-block text-end font-monospace" style="font-size: 0.75rem;">Logged: {{ c.submitted_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    new Chart(document.getElementById('facultyRadarChart'), {
+        type: 'radar',
+        data: {
+            labels: {{ report_data.radar_labels | tojson }},
+            datasets: [{
+                label: 'Metric Performance Profile',
+                data: {{ report_data.radar_scores | tojson }},
+                fill: true,
+                backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                borderColor: 'rgba(25, 135, 84, 1)',
+                pointBackgroundColor: 'rgba(25, 135, 84, 1)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            scales: { r: { min: 0, max: 5, ticks: { stepSize: 1 } } },
+            responsive: true
+        }
+    });
+</script>
+
+<style>
+    @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; color: black !important; }
+        .card { border: none !important; box-shadow: none !important; }
+    }
+</style>
+{% endif %}
+{% endblock %}

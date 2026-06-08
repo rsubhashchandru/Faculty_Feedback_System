@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold font-monospace">Faculty Profiles Management</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFacultyModal">+ Onboard Faculty</button>
+</div>
+
+<div class="mb-3">
+    <input type="text" id="facultySearchInput" class="form-control" placeholder="Search faculty profiles by name, department, or subject..." onkeyup="filterFacultyTable()">
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle m-0" id="facultyTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Assigned Subject Matter</th>
+                    <th class="text-center">Operations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in faculties %}
+                <tr>
+                    <td>{{ f.faculty_id }}</td>
+                    <td class="fw-bold text-primary">{{ f.faculty_name }}</td>
+                    <td><span class="badge bg-secondary">{{ f.department }}</span></td>
+                    <td>{{ f.subject }}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-warning me-1" 
+                                onclick="openEditModal('{{ f.faculty_id }}', '{{ f.faculty_name }}', '{{ f.department }}', '{{ f.subject }}')">Modify</button>
+                        <form action="{{ url_for('faculty_management') }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm deletion? Transitive dependencies (feedback tracking histories) will clear automatically.');">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="faculty_id" value="{{ f.faculty_id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Purge</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addFacultyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('faculty_management') }}" method="POST" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Onboard New Faculty Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action" id="modalAction" value="add">
+                <input type="hidden" name="faculty_id" id="modalFacultyId">
+                <div class="mb-3">
+                    <label class="form-label">Faculty Full Name</label>
+                    <input type="text" name="faculty_name" id="modalName" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Department Track</label>
+                    <input type="text" name="department" id="modalDept" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Subject Domain Specialization</label>
+                    <input type="text" name="subject" id="modalSubj" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary" id="modalSubmitBtn">Commit Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modalInstance = new bootstrap.Modal(document.getElementById('addFacultyModal'));
+    
+    function openEditModal(id, name, dept, subj) {
+        document.getElementById('modalAction').value = 'edit';
+        document.getElementById('modalFacultyId').value = id;
+        document.getElementById('modalName').value = name;
+        document.getElementById('modalDept').value = dept;
+        document.getElementById('modalSubj').value = subj;
+        document.getElementById('modalSubmitBtn').className = 'btn btn-warning';
+        document.getElementById('modalSubmitBtn').innerText = 'Modify Profile';
+        modalInstance.show();
+    }
+    
+    document.getElementById('addFacultyModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('modalAction').value = 'add';
+        document.getElementById('modalName').value = '';
+        document.getElementById('modalDept').value = '';
+        document.getElementById('modalSubj').value = '';
+        document.getElementById('modalSubmitBtn').className = 'btn btn-primary';
+        document.getElementById('modalSubmitBtn').innerText = 'Commit Record';
+    });
+
+    function filterFacultyTable() {
+        const input = document.getElementById("facultySearchInput").value.toUpperCase();
+        const rows = document.getElementById("facultyTable").getElementsByTagName("tr");
+        for (let i = 1; i < rows.length; i++) {
+            const cells = rows[i].getElementsByTagName("td");
+            let match = false;
+            for (let j = 1; j < cells.length - 1; j++) {
+                if (cells[j] && cells[j].innerText.toUpperCase().indexOf(input) > -1) {
+                    match = true;
+                    break;
+                }
+            }
+            rows[i].style.display = match ? "" : "none";
+        }
+    }
+</script>
+{% endblock %}

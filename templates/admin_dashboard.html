@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4 fw-bold font-monospace">System KPI Overview Analytics</h2>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card text-center border-0 bg-primary text-white p-3 shadow-sm">
+            <h6 class="text-uppercase opacity-75 small fw-bold">Total Faculty Profiles</h6>
+            <h2 class="m-0 display-6 fw-bold">{{ total_fac }}</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-0 bg-success text-white p-3 shadow-sm">
+            <h6 class="text-uppercase opacity-75 small fw-bold">Active Questions</h6>
+            <h2 class="m-0 display-6 fw-bold">{{ total_q }}</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-0 bg-warning text-dark p-3 shadow-sm">
+            <h6 class="text-uppercase opacity-75 small fw-bold">Feedback Forms Received</h6>
+            <h2 class="m-0 display-6 fw-bold">{{ total_fb }}</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-0 bg-info text-white p-3 shadow-sm">
+            <h6 class="text-uppercase opacity-75 small fw-bold">Global Performance Mean</h6>
+            <h2 class="m-0 display-6 fw-bold">{{ avg_sys }} <span class="fs-6">/ 5</span></h2>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mb-4">
+        <div class="card p-3 border-0 bg-body-tertiary">
+            <h5 class="card-title fw-bold text-secondary mb-3">Faculty Ranking Evaluation Matrix</h5>
+            <canvas id="facultyBarChart" style="max-height: 350px;"></canvas>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card p-3 border-0 bg-body-tertiary">
+            <h5 class="card-title fw-bold text-secondary mb-3">Score Metrics Distribution</h5>
+            <canvas id="ratingPieChart" style="max-height: 350px;"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const chartContextData = {{ chart_data | tojson }};
+    
+    // Bar Chart Construction Configuration
+    new Chart(document.getElementById('facultyBarChart'), {
+        type: 'bar',
+        data: {
+            labels: chartContextData.fac_labels,
+            datasets: [{
+                label: 'Mean Evaluation Metric Rating',
+                data: chartContextData.fac_ratings,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1.5,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            scales: { y: { min: 0, max: 5 } },
+            responsive: true
+        }
+    });
+
+    // Pie Chart Construction Configuration
+    new Chart(document.getElementById('ratingPieChart'), {
+        type: 'pie',
+        data: {
+            labels: ['1-Poor', '2-Fair', '3-Good', '4-Very Good', '5-Excellent'],
+            datasets: [{
+                data: chartContextData.dist_counts,
+                backgroundColor: [
+                    '#dc3545', '#ffc107', '#0dcaf0', '#0d6efd', '#198754'
+                ]
+            }]
+        },
+        options: { responsive: true }
+    });
+</script>
+{% endblock %}
