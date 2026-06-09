@@ -1,15 +1,11 @@
 import os
 
 class Config:
-    # Secret key for signing session cookies securely
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'super-secret-dev-key-12345'
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev_secret_key_123')
     
-    # Database configuration parameters
-    MYSQL_USER = 'root'
-    MYSQL_PASSWORD = 'subhash8296424069'  # <-- Change this to your local MySQL password
-    MYSQL_HOST = 'localhost'
-    MYSQL_DB = 'faculty_feedback_db'
-    
-    # SQLAlchemy Connection String mapping
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}"
+    # This string routes your app straight to your live Railway cloud database
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        'DATABASE_URL', 
+        'mysql+pymysql://root:GtSSbCXDZMAgesroYPppmYeymexpxPHA@acela.proxy.rlwy.net:18523/railway'
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
