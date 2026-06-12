@@ -199,8 +199,6 @@ def question_management():
 
 # --- ADMIN ROUTE: REPORT MODULE ---
 @app.route('/admin/reports')
-# --- ADMIN ROUTE: REPORT MODULE ---
-@app.route('/admin/reports')
 def reports():
     if not is_admin_logged_in():
         return redirect(url_for('admin_login'))
