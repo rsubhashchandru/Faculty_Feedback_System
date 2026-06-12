@@ -199,48 +199,31 @@ def question_management():
 
 # --- ADMIN ROUTE: REPORT MODULE ---
 @app.route('/admin/reports')
-def reports():
-    if not is_admin_logged_in():
-        return redirect(url_for('admin_login'))
-        
-    faculty_id = request.args.get('faculty_id')
-    faculties = db.session.execute(text("SELECT * FROM faculty")).fetchall()
-    
-    report_data = None
-    if faculty_id:
-        # 1. Overall profile metric configurations
-        meta = db.session.execute(text("SELECT * FROM faculty WHERE faculty_id=:id"), {'id': faculty_id}).fetchone()
-        count = db.session.execute(text("SELECT COUNT(*) FROM feedback WHERE faculty_id=:id"), {'id': faculty_id}).scalar() or 0
-        score = db.session.execute(text("""
-            SELECT ROUND(AVG(fr.rating), 2) FROM feedback_response fr 
-            JOIN feedback f ON fr.feedback_id=f.feedback_id WHERE f.faculty_id=:id
-        """), {'id': faculty_id}).scalar() or 0.00
-        
-        # 2. Extract atomic question metric breakdown
-        q_breakdown = db.session.execute(text("""
-            SELECT q.question_text, ROUND(AVG(fr.rating),2) AS q_avg
-            FROM questions q
-            JOIN feedback_response fr ON q.question_id=fr.question_id
-            JOIN feedback f ON fr.feedback_id=f.feedback_id
-            WHERE f.faculty_id=:id
-            GROUP BY q.question_id, q.question_text
-        """), {'id': faculty_id}).fetchall()
-        
-        # 3. Pull associated contextual comments text blocks
+# 3. Pull associated contextual comments text blocks
         comms = db.session.execute(text("""
             SELECT c.comment_text, f.submitted_at FROM comments c
             JOIN feedback f ON c.feedback_id=f.feedback_id
             WHERE f.faculty_id=:id ORDER BY f.submitted_at DESC
         """), {'id': faculty_id}).fetchall()
         
-        report_data = {
-            'meta': meta, 'count': count, 'score': score,
-            'q_breakdown': q_breakdown, 'comments': comms,
-            'radar_labels': [r.question_text[:20] + '...' if len(r.question_text) > 20 else r.question_text for r in q_breakdown],
-            'radar_scores': [float(r.q_avg) if r.q_avg else 0.0 for r in q_breakdown]
-        }
+        # FIX: Convert raw rows safely using indices to prevent named tuple AttributeError
+        radar_labels = []
+        radar_scores = []
+        for r in q_breakdown:
+            # r[0] is the question text, r[1] is the average rating
+            q_text = r[0] if r[0] else ""
+            q_avg = r[1] if r[1] else 0.0
+            
+            short_text = q_text[:20] + '...' if len(q_text) > 20 else q_text
+            radar_labels.append(short_text)
+            radar_scores.append(float(q_avg))
         
-    return render_template('reports.html', faculties=faculties, selected_id=faculty_id, report_data=report_data)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        report_data = {
+            'meta': meta, 
+            'count': count, 
+            'score': score,
+            'q_breakdown': q_breakdown, 
+            'comments': comms,
+            'radar_labels': radar_labels,
+            'radar_scores': radar_scores
+        }
