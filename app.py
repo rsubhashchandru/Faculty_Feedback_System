@@ -242,10 +242,12 @@ def reports():
             """), {'id': faculty_id}).fetchall()
 
             # 3. Pull associated contextual comments text blocks
+            # FIX: 'submitted_at' column may not exist in the live DB — select only comment_text
+            # and order by comment_id to avoid "Unknown column" OperationalError
             comms = db.session.execute(text("""
-                SELECT c.comment_text, f.submitted_at FROM comments c
+                SELECT c.comment_text FROM comments c
                 JOIN feedback f ON c.feedback_id=f.feedback_id
-                WHERE f.faculty_id=:id ORDER BY f.submitted_at DESC
+                WHERE f.faculty_id=:id ORDER BY c.comment_id DESC
             """), {'id': faculty_id}).fetchall()
 
             # Safe breakdown for charts and loops
@@ -264,16 +266,7 @@ def reports():
 
             clean_comments = []
             for c in comms:
-                # FIX: submitted_at may be a datetime object or string depending on DB driver.
-                # Normalize it to a plain string here so the template never has to branch.
-                raw_ts = c[1]
-                if isinstance(raw_ts, (datetime.datetime, datetime.date)):
-                    ts_str = raw_ts.strftime('%Y-%m-%d %H:%M')
-                elif raw_ts:
-                    ts_str = str(raw_ts)[:16]
-                else:
-                    ts_str = 'N/A'
-                clean_comments.append({'comment_text': c[0], 'submitted_at': ts_str})
+                clean_comments.append({'comment_text': c[0], 'submitted_at': 'N/A'})
 
             report_data = {
                 'meta': meta,
