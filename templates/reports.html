@@ -77,7 +77,7 @@
                 {% for c in report_data.comments %}
                 <div class="border-bottom pb-2 mb-2">
                     <p class="mb-1 bg-body-tertiary p-2 rounded small">"{{ c.comment_text }}"</p>
-                    <small class="text-muted d-block text-end font-monospace" style="font-size: 0.75rem;">Logged: {% if c.submitted_at %}{% if c.submitted_at is string %}{{ c.submitted_at[:16] }}{% else %}{{ c.submitted_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}{% else %}N/A{% endif %}</small>
+                    <small class="text-muted d-block text-end font-monospace" style="font-size: 0.75rem;">Logged: {{ c.submitted_at if c.submitted_at else 'N/A' }}</small>
                 </div>
                 {% endfor %}
             </div>

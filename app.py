@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash
 from config import Config
 from sqlalchemy import text
+from decimal import Decimal
+import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -208,66 +210,82 @@ def reports():
     
     report_data = None
     if faculty_id:
-        # 1. Overall profile metric configurations
-        meta_row = db.session.execute(text("SELECT * FROM faculty WHERE faculty_id=:id"), {'id': faculty_id}).fetchone()
-        count = db.session.execute(text("SELECT COUNT(*) FROM feedback WHERE faculty_id=:id"), {'id': faculty_id}).scalar() or 0
-        score = db.session.execute(text("""
-            SELECT ROUND(AVG(fr.rating), 2) FROM feedback_response fr 
-            JOIN feedback f ON fr.feedback_id=f.feedback_id WHERE f.faculty_id=:id
-        """), {'id': faculty_id}).scalar() or 0.00
-        
-        # Safe conversion for meta row
-        meta = None
-        if meta_row:
-            meta = {
-                'faculty_id': meta_row[0],
-                'faculty_name': meta_row[1],
-                'department': meta_row[2],
-                'subject': meta_row[3]
+        try:
+            # 1. Overall profile metric configurations
+            meta_row = db.session.execute(text("SELECT * FROM faculty WHERE faculty_id=:id"), {'id': faculty_id}).fetchone()
+            count = db.session.execute(text("SELECT COUNT(*) FROM feedback WHERE faculty_id=:id"), {'id': faculty_id}).scalar() or 0
+            raw_score = db.session.execute(text("""
+                SELECT ROUND(AVG(fr.rating), 2) FROM feedback_response fr 
+                JOIN feedback f ON fr.feedback_id=f.feedback_id WHERE f.faculty_id=:id
+            """), {'id': faculty_id}).scalar()
+            # FIX: ROUND(AVG()) returns MySQL Decimal — cast to float to prevent serialization errors
+            score = float(raw_score) if raw_score is not None else 0.00
+
+            # Safe conversion for meta row
+            meta = None
+            if meta_row:
+                meta = {
+                    'faculty_id': meta_row[0],
+                    'faculty_name': meta_row[1],
+                    'department': meta_row[2],
+                    'subject': meta_row[3]
+                }
+
+            # 2. Extract atomic question metric breakdown
+            q_breakdown = db.session.execute(text("""
+                SELECT q.question_text, ROUND(AVG(fr.rating),2) AS q_avg
+                FROM questions q
+                JOIN feedback_response fr ON q.question_id=fr.question_id
+                JOIN feedback f ON fr.feedback_id=f.feedback_id
+                WHERE f.faculty_id=:id
+                GROUP BY q.question_id, q.question_text
+            """), {'id': faculty_id}).fetchall()
+
+            # 3. Pull associated contextual comments text blocks
+            comms = db.session.execute(text("""
+                SELECT c.comment_text, f.submitted_at FROM comments c
+                JOIN feedback f ON c.feedback_id=f.feedback_id
+                WHERE f.faculty_id=:id ORDER BY f.submitted_at DESC
+            """), {'id': faculty_id}).fetchall()
+
+            # Safe breakdown for charts and loops
+            radar_labels = []
+            radar_scores = []
+            clean_q_breakdown = []
+            for r in q_breakdown:
+                q_text = r[0] if r[0] else ""
+                # FIX: ROUND(AVG()) returns Decimal — always cast to float
+                q_avg = float(r[1]) if r[1] is not None else 0.0
+
+                clean_q_breakdown.append({'question_text': q_text, 'q_avg': round(q_avg, 2)})
+                short_text = q_text[:20] + '...' if len(q_text) > 20 else q_text
+                radar_labels.append(short_text)
+                radar_scores.append(q_avg)
+
+            clean_comments = []
+            for c in comms:
+                # FIX: submitted_at may be a datetime object or string depending on DB driver.
+                # Normalize it to a plain string here so the template never has to branch.
+                raw_ts = c[1]
+                if isinstance(raw_ts, (datetime.datetime, datetime.date)):
+                    ts_str = raw_ts.strftime('%Y-%m-%d %H:%M')
+                elif raw_ts:
+                    ts_str = str(raw_ts)[:16]
+                else:
+                    ts_str = 'N/A'
+                clean_comments.append({'comment_text': c[0], 'submitted_at': ts_str})
+
+            report_data = {
+                'meta': meta,
+                'count': count,
+                'score': score,
+                'q_breakdown': clean_q_breakdown,
+                'comments': clean_comments,
+                'radar_labels': radar_labels,
+                'radar_scores': radar_scores
             }
-        
-        # 2. Extract atomic question metric breakdown
-        q_breakdown = db.session.execute(text("""
-            SELECT q.question_text, ROUND(AVG(fr.rating),2) AS q_avg
-            FROM questions q
-            JOIN feedback_response fr ON q.question_id=fr.question_id
-            JOIN feedback f ON fr.feedback_id=f.feedback_id
-            WHERE f.faculty_id=:id
-            GROUP BY q.question_id, q.question_text
-        """), {'id': faculty_id}).fetchall()
-        
-        # 3. Pull associated contextual comments text blocks
-        comms = db.session.execute(text("""
-            SELECT c.comment_text, f.submitted_at FROM comments c
-            JOIN feedback f ON c.feedback_id=f.feedback_id
-            WHERE f.faculty_id=:id ORDER BY f.submitted_at DESC
-        """), {'id': faculty_id}).fetchall()
-        
-        # Safe breakdown for charts and loops
-        radar_labels = []
-        radar_scores = []
-        clean_q_breakdown = []
-        for r in q_breakdown:
-            q_text = r[0] if r[0] else ""
-            q_avg = r[1] if r[1] else 0.0
-            
-            clean_q_breakdown.append({'question_text': q_text, 'q_avg': q_avg})
-            short_text = q_text[:20] + '...' if len(q_text) > 20 else q_text
-            radar_labels.append(short_text)
-            radar_scores.append(float(q_avg))
-            
-        clean_comments = []
-        for c in comms:
-            clean_comments.append({'comment_text': c[0], 'submitted_at': c[1]})
-        
-        report_data = {
-            'meta': meta, 
-            'count': count, 
-            'score': score,
-            'q_breakdown': clean_q_breakdown, 
-            'comments': clean_comments,
-            'radar_labels': radar_labels,
-            'radar_scores': radar_scores
-        }
-        
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error generating report: {str(e)}', 'danger')
+
     return render_template('reports.html', faculties=faculties, selected_id=faculty_id, report_data=report_data)
