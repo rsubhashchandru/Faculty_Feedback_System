@@ -53,8 +53,9 @@ CREATE TABLE IF NOT EXISTS comments (
 ) ENGINE=InnoDB;
 
 -- SEED SCRIPT FOR BASELINE RUN:
+-- Login credentials: username = admin, password = admin123
 INSERT INTO admin (username, password_hash) VALUES 
-('admin', 'scrypt:32768:8:1$vY3P8nLQzO9W3bV8$896b0255b88339da3b3f2ec806bc2d449ffbb06e01768407cdbd07386fc7131b4028b05615781a7b450700d6efcd5be69f20ff740dd67bb1e7ecf2e717ee0362');
+('admin', 'admin123');
 
 INSERT INTO faculty (faculty_name, department, subject) VALUES 
 ('Dr. Alan Turing', 'Computer Science', 'DBMS'),

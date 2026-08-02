@@ -282,3 +282,7 @@ def reports():
             flash(f'Error generating report: {str(e)}', 'danger')
 
     return render_template('reports.html', faculties=faculties, selected_id=faculty_id, report_data=report_data)
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
